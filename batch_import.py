@@ -100,15 +100,15 @@ class Word(Model):
     class Meta:
         database = db
 
-class Utterance(Model):
-    word = ForeignKeyField(Word, backref='utterances')
-    speaker = ForeignKeyField(Speaker, backref='utterances')
+class SpeakerWordJoin(Model):
+    word = ForeignKeyField(Word, backref='speakers')
+    speaker = ForeignKeyField(Speaker, backref='words')
     
     class Meta:
         database = db
 
 db.connect()
-# db.create_tables([Grammar, SemanticDomain, Speaker, Word, Utterance])
+# db.create_tables([Grammar, SemanticDomain, Speaker, Word, SpeakerWordJoin])
 
 for row in all_sheets[0][1:]:
     headword = row[0].strip()
@@ -126,4 +126,4 @@ for row in all_sheets[0][1:]:
     )
     for speaker in speakers:
         s, s_created = Speaker.get_or_create(name=speaker.strip())
-        Utterance.create(speaker = s.id, word = word.id)
+        SpeakerWordJoin.create(speaker = s.id, word = word.id)
