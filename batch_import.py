@@ -67,3 +67,63 @@ sheets = get_sheets(service, id)
 
 # Returns the values for all of the subsheets as a 2d list
 all_sheets = read_sheets(sheets)
+
+from peewee import *
+
+db = SqliteDatabase('database.db')
+        
+class Grammar(Model):
+    label = CharField()
+    
+    class Meta:
+        database = db
+
+class SemanticDomain(Model):
+    label = CharField()
+    
+    class Meta:
+        database = db
+
+class Speaker(Model):
+    name = CharField()
+    
+    class Meta:
+        database = db
+
+class Word(Model):
+    headword = CharField()
+    english = CharField()
+    grammar = ForeignKeyField(Grammar, backref='words')
+    semantic_domain = ForeignKeyField(SemanticDomain, backref='words')
+    info = TextField()
+    
+    class Meta:
+        database = db
+
+class Utterance(Model):
+    word = ForeignKeyField(Word, backref='utterances')
+    speaker = ForeignKeyField(Speaker, backref='utterances')
+    
+    class Meta:
+        database = db
+
+db.connect()
+# db.create_tables([Grammar, SemanticDomain, Speaker, Word, Utterance])
+
+for row in all_sheets[0][1:]:
+    headword = row[0].strip()
+    english = row[1].strip()
+    grammar, g_created = Grammar.get_or_create(label=row[2].strip())
+    speakers = row[3].split(", ")
+    info = row[4].strip()
+    semantic_domain, s_d_created = SemanticDomain.get_or_create(label=row[5].strip())
+    word = Word.create(
+        headword = headword,
+        english = english,
+        grammar = grammar.id,
+        semantic_domain = semantic_domain.id,
+        info = info
+    )
+    for speaker in speakers:
+        s, s_created = Speaker.get_or_create(name=speaker.strip())
+        Utterance.create(speaker = s.id, word = word.id)
