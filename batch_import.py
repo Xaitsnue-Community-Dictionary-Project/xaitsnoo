@@ -70,60 +70,131 @@ all_sheets = read_sheets(sheets)
 
 from peewee import *
 
-db = SqliteDatabase('database.db')
+db = MySQLDatabase('Xaitsnoo')
         
+# Grammar table
 class Grammar(Model):
-    label = CharField()
-    
+    uuid = IntegerField(primary_key=True)
+    grammar_type = CharField()
+
     class Meta:
         database = db
 
-class SemanticDomain(Model):
-    label = CharField()
-    
+# SemanticDomain (Classifications) table
+class Classification(Model):
+    uuid = IntegerField(primary_key=True)
+    class_name = CharField()
+
     class Meta:
         database = db
 
+# Speaker table
 class Speaker(Model):
-    name = CharField()
-    
+    uuid = IntegerField(primary_key=True)
+    first_name = CharField()
+    last_name = CharField()
+
     class Meta:
         database = db
 
-class Word(Model):
+# Word (Dictionary) table
+class Dictionary(Model):
+    uuid = IntegerField(primary_key=True)
     headword = CharField()
-    english = CharField()
+    translation = CharField()
     grammar = ForeignKeyField(Grammar, backref='words')
-    semantic_domain = ForeignKeyField(SemanticDomain, backref='words')
-    info = TextField()
-    
+    notes = TextField()
+
     class Meta:
         database = db
 
-class SpeakerWordJoin(Model):
-    word = ForeignKeyField(Word, backref='speakers')
-    speaker = ForeignKeyField(Speaker, backref='words')
-    
+# Variants table
+class Variant(Model):
+    uuid = IntegerField(primary_key=True)
+    variant = CharField()
+    context = CharField()
+    dictionary = ForeignKeyField(Dictionary, backref='variants')
+    speaker = ForeignKeyField(Speaker, backref='variants')
+
     class Meta:
         database = db
 
-db.connect()
-# db.create_tables([Grammar, SemanticDomain, Speaker, Word, SpeakerWordJoin])
+# Dictionary-Speaker Association table (many-to-many)
+class DictionarySpeakerAssociation(Model):
+    dictionary = ForeignKeyField(Dictionary, backref='speakers')
+    speaker = ForeignKeyField(Speaker, backref='dictionaries')
+
+    class Meta:
+        database = db
+
+# Classification-Taxonomy table (many-to-many relationship)
+class ClassificationTaxonomy(Model):
+    classification = ForeignKeyField(Classification, backref='taxonomies')
+    class_association = ForeignKeyField(Classification, backref='associated_classes')
+
+    class Meta:
+        database = db
+
+# Dictionary-Classification Association table (many-to-many)
+class DictionaryClassificationAssociation(Model):
+    dictionary = ForeignKeyField(Dictionary, backref='classifications')
+    classification = ForeignKeyField(Classification, backref='dictionaries')
+
+    class Meta:
+        database = db
+
+# Audio table
+class Audio(Model):
+    uuid = IntegerField(primary_key=True)
+    audio_file = CharField()
+
+    class Meta:
+        database = db
+
+# Dictionary-Audio Association table (many-to-many)
+class DictionaryAudioAssociation(Model):
+    dictionary = ForeignKeyField(Dictionary, backref='audios')
+    audio = ForeignKeyField(Audio, backref='dictionaries')
+
+    class Meta:
+        database = db
+
+# Photo table
+class Photo(Model):
+    uuid = IntegerField(primary_key=True)
+    photo_file = CharField()
+
+    class Meta:
+        database = db
+
+# Dictionary-Photo Association table (many-to-many)
+class DictionaryPhotoAssociation(Model):
+    dictionary = ForeignKeyField(Dictionary, backref='photos')
+    photo = ForeignKeyField(Photo, backref='dictionaries')
+
+    class Meta:
+        database = db
+
+db.connect(os.getenv('DATABASE_URL'))
+db.create_tables([Grammar, Classification, Speaker, Dictionary, Variant, DictionarySpeakerAssociation,
+  ClassificationTaxonomy, DictionaryClassificationAssociation, Audio, DictionaryAudioAssociation,
+  Photo, DictionaryPhotoAssociation])
 
 for row in all_sheets[0][1:]:
     headword = row[0].strip()
     english = row[1].strip()
-    grammar, g_created = Grammar.get_or_create(label=row[2].strip())
+    grammar, g_created = Grammar.get_or_create(grammar_type=row[2].strip())
     speakers = row[3].split(", ")
     info = row[4].strip()
-    semantic_domain, s_d_created = SemanticDomain.get_or_create(label=row[5].strip())
-    word = Word.create(
+    classification, c_created = Classification.get_or_create(class_name=row[5].strip())
+    dictionary = Dictionary.create(
         headword = headword,
-        english = english,
-        grammar = grammar.id,
-        semantic_domain = semantic_domain.id,
-        info = info
+        translation = english,
+        grammar = grammar.uuid,
+        classification = classification.uuid,
+        notes = info
     )
     for speaker in speakers:
-        s, s_created = Speaker.get_or_create(name=speaker.strip())
-        SpeakerWordJoin.create(speaker = s.id, word = word.id)
+        print(speaker)
+        s, s_created = Speaker.get_or_create(first_name=speaker.strip(), last_name="")
+        DictionarySpeakerAssociation.create(speaker = s.uuid, dictionary = dictionary.uuid)
